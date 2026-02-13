@@ -98,38 +98,53 @@ export default function DashboardPage() {
   };
 
   // ⚡ Realtime
-  useEffect(() => {
-    const channel = supabase
-      .channel("realtime-bookmarks")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bookmarks" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setBookmarks((prev) => [payload.new as Bookmark, ...prev]);
-          }
-          if (payload.eventType === "DELETE") {
-            setBookmarks((prev) =>
-              prev.filter((b) => b.id !== payload.old.id)
-            );
-          }
-          if (payload.eventType === "UPDATE") {
-            setBookmarks((prev) =>
-              prev.map((b) =>
-                b.id === payload.new.id
-                  ? (payload.new as Bookmark)
-                  : b
-              )
-            );
-          }
-        }
-      )
-      .subscribe();
+    useEffect(() => {
+    const setupRealtime = async () => {
+        const { data } = await supabase.auth.getSession();
+        const user = data.session?.user;
 
-    return () => {
-      supabase.removeChannel(channel);
+        if (!user) return;
+
+        const channel = supabase
+        .channel("realtime-bookmarks")
+        .on(
+            "postgres_changes",
+            {
+            event: "*",
+            schema: "public",
+            table: "bookmarks",
+            filter: `user_id=eq.${user.id}`,
+            },
+            (payload) => {
+            if (payload.eventType === "INSERT") {
+                setBookmarks((prev) => [
+                payload.new as Bookmark,
+                ...prev,
+                ]);
+            }
+
+            if (payload.eventType === "DELETE") {
+                setBookmarks((prev) =>
+                prev.filter((b) => b.id !== payload.old.id)
+                );
+            }
+
+            if (payload.eventType === "UPDATE") {
+                setBookmarks((prev) =>
+                prev.map((b) =>
+                    b.id === payload.new.id
+                    ? (payload.new as Bookmark)
+                    : b
+                )
+                );
+            }
+            }
+        )
+        .subscribe();
     };
-  }, []);
+
+    setupRealtime();
+    }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
