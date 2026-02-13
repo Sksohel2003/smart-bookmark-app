@@ -52,19 +52,33 @@ export default function DashboardPage() {
   };
 
   // ➕ Add Bookmark
-  const handleAddBookmark = async (e: React.FormEvent) => {
+    const handleAddBookmark = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!title.trim() || !url.trim()) return;
 
+    const { data: sessionData } = await supabase.auth.getSession();
+    const user = sessionData.session?.user;
+
+    if (!user) return;
+
     const { error } = await supabase.from("bookmarks").insert([
-      { title, url },
+        {
+        title,
+        url,
+        user_id: user.id,
+        },
     ]);
 
-    if (!error) {
-      setTitle("");
-      setUrl("");
+    if (error) {
+        console.error("Insert error:", error.message);
+        return;
     }
-  };
+
+    setTitle("");
+    setUrl("");
+    };
+
 
   // 🗑 Delete
   const handleDeleteBookmark = async (id: string) => {
